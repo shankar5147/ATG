@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GeminiChatbot", "GeminiChatbot", "{C9116981-E92B-7A79-6AE7-BF61A066E343}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatbotApi", "GeminiChatbot\backend\ChatbotApi.csproj", "{A0860477-22E7-9D09-D2DE-83475C15573E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A0860477-22E7-9D09-D2DE-83475C15573E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A0860477-22E7-9D09-D2DE-83475C15573E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A0860477-22E7-9D09-D2DE-83475C15573E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A0860477-22E7-9D09-D2DE-83475C15573E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A0860477-22E7-9D09-D2DE-83475C15573E} = {C9116981-E92B-7A79-6AE7-BF61A066E343}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9AD33832-07E3-4C51-AC55-D895E0A32360}
+	EndGlobalSection
+EndGlobal
