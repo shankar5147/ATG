@@ -173,8 +173,36 @@ public class ChatController : ControllerBase
             return Unauthorized();
         }
 
-        await _chatHistoryService.DeleteSessionAsync(sessionId, userId.Value);
+        var deleted = await _chatHistoryService.DeleteSessionAsync(sessionId, userId.Value);
+        if (!deleted)
+        {
+            return NotFound(new { error = "Session not found" });
+        }
         return NoContent();
+    }
+
+    // Update session title
+    [HttpPut("sessions/{sessionId}")]
+    [Authorize]
+    public async Task<ActionResult> UpdateSessionTitle(int sessionId, [FromBody] UpdateSessionRequest request)
+    {
+        var userId = GetUserId();
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { error = "Title is required" });
+        }
+
+        var updated = await _chatHistoryService.UpdateSessionTitleAsync(sessionId, userId.Value, request.Title);
+        if (!updated)
+        {
+            return NotFound(new { error = "Session not found" });
+        }
+        return Ok(new { success = true });
     }
 
     [HttpGet("health")]
@@ -203,4 +231,9 @@ public class ChatResponseWithSession
 public class CreateSessionRequest
 {
     public string? Title { get; set; }
+}
+
+public class UpdateSessionRequest
+{
+    public string Title { get; set; } = string.Empty;
 }

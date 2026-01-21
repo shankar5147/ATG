@@ -16,8 +16,13 @@ public class User
     [EmailAddress]
     public string Email { get; set; } = string.Empty;
 
-    [Required]
-    public string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; }
+
+    [MaxLength(255)]
+    public string? GoogleId { get; set; }
+
+    [MaxLength(500)]
+    public string? ProfilePicture { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

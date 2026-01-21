@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Google.Apis.Auth;
 using ChatbotApi.Data;
 using ChatbotApi.Models.Entities;
 
@@ -12,6 +13,7 @@ public interface IAuthService
 {
     Task<AuthResult> RegisterAsync(RegisterRequest request);
     Task<AuthResult> LoginAsync(LoginRequest request);
+    Task<AuthResult> GoogleLoginAsync(GoogleLoginRequest request);
     Task<User?> GetUserByIdAsync(int userId);
     Task<User?> ValidateTokenAsync(string token);
 }
@@ -77,7 +79,8 @@ public class AuthService : IAuthService
                 {
                     Id = user.Id,
                     Name = user.Name,
-                    Email = user.Email
+                    Email = user.Email,
+                    ProfilePicture = user.ProfilePicture
                 }
             };
         }
@@ -98,7 +101,7 @@ public class AuthService : IAuthService
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            if (user == null || string.IsNullOrEmpty(user.PasswordHash) || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
                 return new AuthResult
                 {
@@ -130,7 +133,8 @@ public class AuthService : IAuthService
                 {
                     Id = user.Id,
                     Name = user.Name,
-                    Email = user.Email
+                    Email = user.Email,
+                    ProfilePicture = user.ProfilePicture
                 }
             };
         }
@@ -142,6 +146,133 @@ public class AuthService : IAuthService
                 Success = false,
                 Error = "An error occurred during login"
             };
+        }
+    }
+
+    public async Task<AuthResult> GoogleLoginAsync(GoogleLoginRequest request)
+    {
+        try
+        {
+            // Validate the Google ID token
+            var payload = await ValidateGoogleTokenAsync(request.IdToken);
+            if (payload == null)
+            {
+                return new AuthResult
+                {
+                    Success = false,
+                    Error = "Invalid Google token"
+                };
+            }
+
+            // Validate Amzur email
+            if (!payload.Email.EndsWith("@amzur.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return new AuthResult
+                {
+                    Success = false,
+                    Error = "Only Amzur employees (@amzur.com) can access this application"
+                };
+            }
+
+            // Check if user exists
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == payload.Email.ToLower());
+
+            if (user == null)
+            {
+                // Create new user from Google data
+                user = new User
+                {
+                    Name = payload.Name ?? payload.Email.Split('@')[0],
+                    Email = payload.Email.ToLower(),
+                    GoogleId = payload.Subject,
+                    ProfilePicture = payload.Picture,
+                    CreatedAt = DateTime.UtcNow,
+                    LastLoginAt = DateTime.UtcNow,
+                    IsActive = true
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("New user created via Google login: {Email}", user.Email);
+            }
+            else
+            {
+                // Update existing user with Google info if not already set
+                if (string.IsNullOrEmpty(user.GoogleId))
+                {
+                    user.GoogleId = payload.Subject;
+                }
+                if (string.IsNullOrEmpty(user.ProfilePicture))
+                {
+                    user.ProfilePicture = payload.Picture;
+                }
+                user.LastLoginAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            if (!user.IsActive)
+            {
+                return new AuthResult
+                {
+                    Success = false,
+                    Error = "Account is deactivated"
+                };
+            }
+
+            var token = GenerateJwtToken(user);
+
+            return new AuthResult
+            {
+                Success = true,
+                Token = token,
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    ProfilePicture = user.ProfilePicture
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during Google login");
+            return new AuthResult
+            {
+                Success = false,
+                Error = "An error occurred during Google login"
+            };
+        }
+    }
+
+    private async Task<GoogleJsonWebSignature.Payload?> ValidateGoogleTokenAsync(string idToken)
+    {
+        try
+        {
+            var clientId = _configuration["Google:ClientId"];
+            if (string.IsNullOrEmpty(clientId))
+            {
+                _logger.LogError("Google Client ID is not configured");
+                return null;
+            }
+
+            var settings = new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { clientId }
+            };
+
+            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, settings);
+            return payload;
+        }
+        catch (InvalidJwtException ex)
+        {
+            _logger.LogWarning(ex, "Invalid Google JWT token");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error validating Google token");
+            return null;
         }
     }
 
@@ -225,6 +356,11 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
+public class GoogleLoginRequest
+{
+    public string IdToken { get; set; } = string.Empty;
+}
+
 public class AuthResult
 {
     public bool Success { get; set; }
@@ -238,4 +374,5 @@ public class UserDto
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? ProfilePicture { get; set; }
 }

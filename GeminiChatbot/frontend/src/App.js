@@ -242,7 +242,12 @@ function App() {
         </div>
         <div className="sidebar-footer">
           <div className="user-info">
-            <span>👤 {user.name}</span>
+            {user.profilePicture ? (
+              <img src={user.profilePicture} alt={user.name} className="user-avatar" />
+            ) : (
+              <span className="user-avatar-default">👤</span>
+            )}
+            <span className="user-name">{user.name}</span>
           </div>
           <button className="logout-btn" onClick={handleLogout}>
             Logout

@@ -11,8 +11,9 @@ public interface IChatHistoryService
     Task<List<ChatSessionDto>> GetUserSessionsAsync(int userId);
     Task<List<ChatMessageDto>> GetSessionMessagesAsync(int sessionId, int userId);
     Task<ChatMessageEntity> AddMessageAsync(int sessionId, string role, string content);
-    Task UpdateSessionTitleAsync(int sessionId, string title);
-    Task DeleteSessionAsync(int sessionId, int userId);
+    Task<bool> UpdateSessionTitleAsync(int sessionId, int userId, string title);
+    Task<bool> DeleteSessionAsync(int sessionId, int userId);
+    Task<string> GenerateSessionTitleAsync(string firstMessage);
 }
 
 public class ChatHistoryService : IChatHistoryService
@@ -106,7 +107,7 @@ public class ChatHistoryService : IChatHistoryService
             // Auto-generate title from first user message if title is default
             if (role == "user" && (session.Title == "New Chat" || string.IsNullOrEmpty(session.Title)))
             {
-                session.Title = content.Length > 50 ? content.Substring(0, 50) + "..." : content;
+                session.Title = await GenerateSessionTitleAsync(content);
             }
         }
 
@@ -115,27 +116,59 @@ public class ChatHistoryService : IChatHistoryService
         return message;
     }
 
-    public async Task UpdateSessionTitleAsync(int sessionId, string title)
+    public async Task<string> GenerateSessionTitleAsync(string firstMessage)
     {
-        var session = await _context.ChatSessions.FindAsync(sessionId);
-        if (session != null)
+        // Generate a smart title from the first message
+        // Remove extra whitespace and newlines
+        var cleaned = string.Join(" ", firstMessage.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries));
+
+        // If message is short enough, use it as is
+        if (cleaned.Length <= 40)
         {
-            session.Title = title;
-            session.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            return cleaned;
         }
+
+        // Find a good breaking point (end of word)
+        var truncated = cleaned.Substring(0, 40);
+        var lastSpace = truncated.LastIndexOf(' ');
+
+        if (lastSpace > 20)
+        {
+            return truncated.Substring(0, lastSpace) + "...";
+        }
+
+        return truncated + "...";
     }
 
-    public async Task DeleteSessionAsync(int sessionId, int userId)
+    public async Task<bool> UpdateSessionTitleAsync(int sessionId, int userId, string title)
     {
         var session = await _context.ChatSessions
             .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
 
-        if (session != null)
+        if (session == null)
         {
-            _context.ChatSessions.Remove(session);
-            await _context.SaveChangesAsync();
+            return false;
         }
+
+        session.Title = title;
+        session.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteSessionAsync(int sessionId, int userId)
+    {
+        var session = await _context.ChatSessions
+            .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId);
+
+        if (session == null)
+        {
+            return false;
+        }
+
+        _context.ChatSessions.Remove(session);
+        await _context.SaveChangesAsync();
+        return true;
     }
 }
 

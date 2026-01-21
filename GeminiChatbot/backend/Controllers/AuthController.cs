@@ -8,11 +8,13 @@ namespace ChatbotApi.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(IAuthService authService, IConfiguration configuration, ILogger<AuthController> logger)
     {
         _authService = authService;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -75,6 +77,42 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("google")]
+    public async Task<ActionResult<AuthResult>> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdToken))
+        {
+            return BadRequest(new AuthResult
+            {
+                Success = false,
+                Error = "Google ID token is required"
+            });
+        }
+
+        _logger.LogInformation("Google login attempt");
+
+        var result = await _authService.GoogleLoginAsync(request);
+
+        if (!result.Success)
+        {
+            return Unauthorized(result);
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("google/client-id")]
+    public ActionResult<object> GetGoogleClientId()
+    {
+        var clientId = _configuration["Google:ClientId"];
+        if (string.IsNullOrEmpty(clientId))
+        {
+            return NotFound(new { error = "Google Client ID not configured" });
+        }
+
+        return Ok(new { clientId });
+    }
+
     [HttpGet("validate")]
     public async Task<ActionResult<AuthResult>> ValidateToken()
     {
@@ -108,7 +146,8 @@ public class AuthController : ControllerBase
             {
                 Id = user.Id,
                 Name = user.Name,
-                Email = user.Email
+                Email = user.Email,
+                ProfilePicture = user.ProfilePicture
             }
         });
     }

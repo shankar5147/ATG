@@ -119,6 +119,27 @@ body {
   margin-bottom: 10px;
   font-size: 0.9rem;
   color: #ccc;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-avatar-default {
+  font-size: 1.5rem;
+}
+
+.user-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .logout-btn {
