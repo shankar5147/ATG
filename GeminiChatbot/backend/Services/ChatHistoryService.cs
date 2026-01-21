@@ -10,6 +10,7 @@ public interface IChatHistoryService
     Task<ChatSession?> GetSessionAsync(int sessionId, int userId);
     Task<List<ChatSessionDto>> GetUserSessionsAsync(int userId);
     Task<List<ChatMessageDto>> GetSessionMessagesAsync(int sessionId, int userId);
+    Task<List<ChatMessageDto>> GetRecentMessagesAsync(int sessionId, int messageCount = 10);
     Task<ChatMessageEntity> AddMessageAsync(int sessionId, string role, string content);
     Task<bool> UpdateSessionTitleAsync(int sessionId, int userId, string title);
     Task<bool> DeleteSessionAsync(int sessionId, int userId);
@@ -84,6 +85,29 @@ public class ChatHistoryService : IChatHistoryService
             Content = m.Content,
             CreatedAt = m.CreatedAt
         }).ToList();
+    }
+
+    /// <summary>
+    /// Gets the most recent messages from a session for conversation memory.
+    /// Default is 10 messages (5 conversation turns: user + assistant pairs).
+    /// </summary>
+    public async Task<List<ChatMessageDto>> GetRecentMessagesAsync(int sessionId, int messageCount = 10)
+    {
+        var messages = await _context.ChatMessages
+            .Where(m => m.ChatSessionId == sessionId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(messageCount)
+            .OrderBy(m => m.CreatedAt) // Re-order chronologically
+            .Select(m => new ChatMessageDto
+            {
+                Id = m.Id,
+                Role = m.Role,
+                Content = m.Content,
+                CreatedAt = m.CreatedAt
+            })
+            .ToListAsync();
+
+        return messages;
     }
 
     public async Task<ChatMessageEntity> AddMessageAsync(int sessionId, string role, string content)

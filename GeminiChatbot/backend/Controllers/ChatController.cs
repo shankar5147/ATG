@@ -77,14 +77,25 @@ public class ChatController : ControllerBase
             sessionId = newSession.Id;
         }
 
+        // Get the last 5 conversations (10 messages) from this session for context
+        var recentMessages = await _chatHistoryService.GetRecentMessagesAsync(sessionId, 10);
+        var conversationHistory = recentMessages.Select(m => new ChatMessage
+        {
+            Role = m.Role,
+            Content = m.Content
+        }).ToList();
+
+        _logger.LogInformation("Loaded {Count} previous messages for context in session {SessionId}",
+            conversationHistory.Count, sessionId);
+
         // Save user message
         await _chatHistoryService.AddMessageAsync(sessionId, "user", request.Message);
 
-        // Get response from Gemini
+        // Get response from Gemini with conversation history
         var chatRequest = new ChatRequest
         {
             Message = request.Message,
-            History = request.History
+            History = conversationHistory // Use DB-stored history instead of frontend-provided
         };
 
         var response = await _geminiService.SendMessageAsync(chatRequest);
